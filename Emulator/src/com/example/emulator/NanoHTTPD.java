@@ -1,4 +1,4 @@
-package com.example.androidwebserver;
+package com.example.emulator;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -24,37 +24,10 @@ import java.util.StringTokenizer;
 import java.util.TimeZone;
 import java.util.Vector;
 
-import android.app.Activity;
-import android.os.Bundle;
-import android.os.Environment;
-import android.util.Log;
-import android.view.Menu;
+import com.example.emulator.NanoHTTPD.HTTPSession;
+import com.example.emulator.NanoHTTPD.Response;
 
-public class MainActivity extends Activity {
-	private static final String TAG = "WebServer";
 
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-        
-        ///File path = Environment.getExternalStorageDirectory();
-        File path = new File("/mnt");
-        Log.e(TAG, "############## path = " + path);
-        File wwwroot = path.getAbsoluteFile();
-        try {
-			new NanoHTTPD(8091, wwwroot);
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}      
-    }
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.activity_main, menu);
-        return true;
-    } 
-}
 
 class NanoHTTPD
 {
@@ -208,26 +181,17 @@ class NanoHTTPD
 	 */
 	public NanoHTTPD( int port, File wwwroot ) throws IOException
 	{
-		
-		Log.e("NanoHTTPD",""+wwwroot);
-		
 		myTcpPort = port;
 		this.myRootDir = wwwroot;
 		myServerSocket = new ServerSocket( myTcpPort );
-		//Log.e("ServerSocket After",""+myServerSocket);
 		myThread = new Thread( new Runnable()
 			{
-				
 				public void run()
 				{
 					try
 					{
-						Log.e("Therad","start");
-						while( true ){
-							Log.e("Before_HTTPSession",""+myServerSocket);
+						while( true )
 							new HTTPSession( myServerSocket.accept());
-							Log.e("HTTPSession",""+myServerSocket);
-						}
 					}
 					catch ( IOException ioe )
 					{}
@@ -237,7 +201,7 @@ class NanoHTTPD
 		myThread.start();
 	}
 
-	/**
+	/**import NanoHTTPD.java;
 	 * Stops the server.
 	 */
 	public void stop()
@@ -261,26 +225,21 @@ class NanoHTTPD
 	 * Handles one session, i.e. parses the HTTP request
 	 * and returns the response.
 	 */
-	private class HTTPSession implements Runnable
+	public class HTTPSession implements Runnable
 	{
 		public HTTPSession( Socket s )
 		{
-			Log.e("StartHTTPSession",""+s);
 			mySocket = s;
 			Thread t = new Thread( this );
-			Log.e("Before_setDaemon",""+t);
 			t.setDaemon( true );
 			t.start();
-			Log.e("start_thread","call_start");
 		}
 
 		public void run()
 		{
 			try
 			{
-				Log.e("StartHTTPSession_run",""+mySocket);
 				InputStream is = mySocket.getInputStream();
-				Log.e("InputStream",""+is);
 				if ( is == null) return;
 
 				// Read the first 8192 bytes.
@@ -609,8 +568,6 @@ class NanoHTTPD
 		**/
 		private String saveTmpFile(byte[] b, int offset, int len)
 		{
-			Log.e("saveTmpFile","start");
-			
 			String path = "";
 			if (len > 0)
 			{
