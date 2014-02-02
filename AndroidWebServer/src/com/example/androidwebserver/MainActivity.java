@@ -39,7 +39,6 @@ public class MainActivity extends Activity {
         setContentView(R.layout.activity_main);
         
         File path = Environment.getExternalStorageDirectory();
-        //File path = new File("/mnt");
         Log.e(TAG, "############## path = " + path);
         File wwwroot = path.getAbsoluteFile();
         try {
@@ -79,7 +78,7 @@ class NanoHTTPD
 	 */
 	public Response serve( String uri, String method, Properties header, Properties parms, Properties files )
 	{
-		Log.e("Respose","start");
+		Log.e("Respose_serve","_serve_start");
 		myOut.println( method + " '" + uri + "' " );
 
 		Enumeration e = header.propertyNames();
@@ -215,11 +214,9 @@ class NanoHTTPD
 	{
 		
 		Log.e("NanoHTTPD",""+wwwroot);
-		
 		myTcpPort = port;
-		this.myRootDir = wwwroot;
-		myServerSocket = new ServerSocket( myTcpPort );
-		//Log.e("ServerSocket After",""+myServerSocket);
+		this.myRootDir = wwwroot;//file 에 wwwroot(/mnt/sdcard) 경로를 대입
+		myServerSocket = new ServerSocket( myTcpPort ); //port번호가 8090인 socket 인스턴스 생성
 		myThread = new Thread( new Runnable()
 			{
 				
@@ -230,11 +227,12 @@ class NanoHTTPD
 						Log.e("Therad","start");
 						while( true ){
 							Log.e("Before_HTTPSession",""+myServerSocket);
+							//myServerSocket = ServerSocket[addr=0.0.0.0/0.0.0.0,port=0,localport=8090]
+							// socket에 정보가 없으므로 addr과 port는 0 이다.
 							new HTTPSession( myServerSocket.accept());
-							//Waits for an incoming request and blocks 
-							//until the connection is opened. This method returns a socket object representing 
-							//the just opened connection.
-							Log.e("HTTPSession",""+myServerSocket);
+							//인터넷에 접속 할때 까지 대기. 연결 되면socket을 리턴한다.
+							//인터텟 접속하면 HTTPSession으로 이동!
+							Log.e("after_HTTPSession",""+myServerSocket);
 						}
 					}
 					catch ( IOException ioe )
@@ -274,12 +272,19 @@ class NanoHTTPD
 		public HTTPSession( Socket s )
 		{
 			Log.e("StartHTTPSession",""+s);
-			mySocket = s;
+			//(Socket[address=/127.0.0.1,port=59039,localPort=8090])
+			// Screen on click 후 HTTPSession에서 부터 다시시작.
+			//  소켓의 포트 정보가 변해서  HTTPSession을 다시 호출 하는 것 같다.
+			// (Socket[address=/127.0.0.1,port=59040,localPort=8090])
+			mySocket = s;//mySocket에 소켓 저장.
 			Thread t = new Thread( this );
 			Log.e("Before_setDaemon",""+t);
 			t.setDaemon( true );
 			t.start();
 			Log.e("start_thread","call_start");
+			//NanoHTTPD 의 while(true) 문으로 다시가서 
+			//new HTTPSession( myServerSocket.accept()); 호출
+			//바로 run()으로 시작 된다.
 		}
 
 		public void run()
@@ -287,50 +292,146 @@ class NanoHTTPD
 			try
 			{
 				Log.e("StartHTTPSession_run",""+mySocket);
+				// Screeon on click 전 Socket[address=/127.0.0.1,port=59039,localPort=8090]
+				// Screen on click 후 Socket[address=/127.0.0.1,port=59040,localPort=8090] 
+				// 소켓 정보가 변경됨.
 				InputStream is = mySocket.getInputStream();
-				//Returns an input stream to read data from this socket.
+				// Returns an InputStream to read data from this socket.
+				// return The InputStream object.
 				Log.e("InputStream",""+is);
+				//java.net.PlainSocketImpl$PlainSocketInputStream@4178d8a8
+				//객체 번호.
 				if ( is == null) return;
 
 				// Read the first 8192 bytes.
 				// The full header should fit in here.
 				// Apache's default header limit is 8KB.
 				int bufsize = 8192;
-				byte[] buf = new byte[bufsize];
+				byte[] buf = new byte[bufsize];//byte 배열 생성
+				Log.e("bufsize=8192",""+buf);
 				int rlen = is.read(buf, 0, bufsize);
+				//Reads up to byteCount bytes(8192) from this stream 
+				//and stores them in the byte array buffer(buf) starting at byteOffset(0). 
+				//Returns the number of bytes actually read 
+				//or -1 if the end of the stream has been reached.
+				// This method read bytes from a stream and stores them into a caller supplied buffer.
+
 				if (rlen <= 0) return;
 				char[] check_buf = new char[rlen+1];
 				Log.e("HTTPSession_run_rlen",""+rlen);
+				// 436 접속할때 마다 숫자가 다르게 나왔다. , 
+				// click 후 552 , 
 				for(int i=0; i<=rlen; i++)
 					check_buf[i]=(char)buf[i];
-				
+				//buf에 저장된 내용을 문자로 출력하기 위해 char 배열에 다시 저장
 				String buf_check = new String(check_buf);
+				//char 배열을 문자로 바꿈.
 				Log.e("buf_check",""+buf_check);
+				// click 전 buf내용
+				// GET / HTTP/1.1
+				// Host: localhost:8090
+				// Connection: keep-alive
+				// Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+				// User-Agent: Mozilla/5.0 (Linux; U; Android 4.0.2; en-us; sdk Build/ICS_MR0) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30
+				// Accept-Encoding: gzip,deflate
+				// Accept-Language: en-US
+				// Accept-Charset: utf-8, iso-8859-1, utf-16, *;q=0.7
+				//
+				// ��
+				// click 전 buf 내용 end
+				
+				// click 후 buf 내용
+				// POST / HTTP/1.1
+				// Host: localhost:8090
+				// Connection: keep-alive
+				// Referer: http://localhost:8090/                    추가
+				// Content-Length: 8                                  추가
+				// Cache-Control: max-age=0                           추가
+				// Origin: http://localhost:8090                      추가
+				// Content-Type: application/x-www-form-urlencoded    추가
+				// Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+				// User-Agent: Mozilla/5.0 (Linux; U; Android 4.0.2; en-us; sdk Build/ICS_MR0) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30
+				// Accept-Encoding: gzip,deflate
+				// Accept-Language: en-US
+				// Accept-Charset: utf-8, iso-8859-1, utf-16, *;q=0.7
+				// 
+				// ��
+				// click 후 buf 내용 end
+				
 				
 				// Create a BufferedReader for parsing the header.
 				ByteArrayInputStream hbis = new ByteArrayInputStream(buf, 0, rlen);
+				//A specialized InputStream for reading the contents of a byte array.
+				//Constructs a new ByteArrayInputStream on the byte array buf 
+				//with the initial position set to offset(0) 
+				//and the number of bytes available set to offset(0) + length(rlen).
+				// Create a new ByteArrayInputStream that will read bytes from the passed in byte array.
+				Log.e( "ByteArrayInputStream hbis_buf.length",""+buf.length); //8192
+
 				Log.e("ByteArrayInputSream_hbis",""+hbis);
 				BufferedReader hin = new BufferedReader( new InputStreamReader( hbis ));
-				Log.e("BufferedReader hin",""+hin);
-				Properties pre = new Properties();
-				Log.e("Properties pre",""+pre);
-				Properties parms = new Properties();
-				Log.e("Properties parms",""+parms);
-				Properties header = new Properties();
-				Log.e("Properties header",""+header);
+				//Constructs a new BufferedReader, providing in with a buffer of 8192 characters.
+				//The Java.io.BufferedReader class reads text from a character-input stream, 
+				//buffering characters so as to provide for the efficient reading of characters, arrays, 
+				//and lines.Following are the important points about BufferedReader:
+				//InputStreamReader 헷갈림. 
+						
+				Properties pre = new Properties();		
+				Properties parms = new Properties();		
+				Properties header = new Properties();		
 				Properties files = new Properties();
-				Log.e("Properties files",""+files);
-
+				
+				Log.e("before_decodeHeader_hin",""+hin);
+				Log.e("before_decodeHeader_pre",""+pre);
+				Log.e("before_decodeHeader_parms",""+parms);
+				Log.e("before_decodeHeader_header",""+header);
+				
 				// Decode the header into parms and header java properties
 				decodeHeader(hin, pre, parms, header);
+			
+				Log.e("after_decodeHeader_hin",""+hin);
+				Log.e("after_decodeHeader_pre",""+pre); // {uri=/, method=GET} , 클릭 후 {uri=/, method=POST
+				Log.e("after_decodeHeader_parms",""+parms); //  {} , 클릭 후 {}
+				Log.e("after_decodeHeader_header",""+header);
+				
+				//----------클릭 전------------------------------------------------------------------ 
+				//{cache-control=no-cache, connection=keep-alive, accept-language=en-US, 
+				// host=localhost:8090, accept=text/html,application/xhtml+xml,
+				// application/xml;q=0.9,*/*;q=0.8, user-agent=Mozilla/5.0 
+				// (Linux; U; Android 4.0.2; en-us; sdk Build/ICS_MR0) AppleWebKit/534.30 (KHTML, like Gecko) 
+				//  Version/4.0 Mobile Safari/534.30, accept-encoding=gzip,deflate, 
+				//  accept-charset=utf-8, iso-8859-1, utf-16, *;q=0.7, pragma=no-cache}
+				
+				// --------클릭 후 ---------------------------------------------------------------
+				// {content-type=application/x-www-form-urlencoded, cache-control=max-age=0,
+				//  connection=keep-alive, accept-language=en-US, host=localhost:8090,
+				//  accept=text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8,
+				//  content-length=8, origin=http://localhost:8090, 
+				//  user-agent=Mozilla/5.0 (Linux; U; Android 4.0.2; en-us; sdk Build/ICS_MR0) 
+				//  AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30,
+				//  accept-encoding=gzip,deflate, referer=http://localhost:8090/, 
+				//  accept-charset=utf-8, iso-8859-1, utf-16, *;q=0.7}  
+				
+				
 				String method = pre.getProperty("method");
-				String uri = pre.getProperty("uri");
-
+				Log.e("method_pre.getProperty",""+method); // GET 출력  , 클릭 후 POST 출력
+				String uri = pre.getProperty("uri"); 
+				Log.e("uri_pre.getProperty",""+uri); // / 출력
 				long size = 0x7FFFFFFFFFFFFFFFl;
+				Log.e("first_size",""+size);  //  9223372036854775807 출력
 				String contentLength = header.getProperty("content-length");
+				
+				Log.e("contentLength_header.getProperty",""+contentLength); 
+				// null 출력 header에 content-length key 값이 없어서.
+				// 클릭 후 header에 contentLength이 존재, 8 출력
+				
 				if (contentLength != null)
 				{
-					try { size = Integer.parseInt(contentLength); }
+					try { 
+						size = Integer.parseInt(contentLength);
+						// Converts the specified String into an int. 
+						Log.e("contentLength_size",""+size);
+						}
 					catch (NumberFormatException ex) {}
 				}
 
@@ -338,19 +439,45 @@ class NanoHTTPD
 				// It must be the last byte of the first two sequential new lines.
 				int splitbyte = 0;
 				boolean sbfound = false;
+				
+				
+				char char_r=(char)'\r';
+				char char_n=(char)'\n';
+				int chartoint_r = char_r;
+				int chartoint_n = char_n;
+				
+				Log.e("chartoint_r","chartoint_r ="+chartoint_r); // 13
+				Log.e("chartoint_n","chartoint_n ="+chartoint_n);// 10
+				
+								
+				for(int i=0; i<=rlen; i++)
+					Log.e("check_buf","i= "+i+" check_buf= "+check_buf[i]); // buf안에 있는 내용을 문자로 출력
+				for(int i=0; i<=rlen; i++)
+					Log.e("check_buf","i= "+i+" check_buf= "+(int)check_buf[i]); //buf안에 있는 내용을 정수로 출력
 				while (splitbyte < rlen)
 				{
+					Log.e("splibyte < rlen","splitbyte: "+splitbyte+", rlen: "+rlen);
 					if (buf[splitbyte] == '\r' && buf[++splitbyte] == '\n' && buf[++splitbyte] == '\r' && buf[++splitbyte] == '\n') {
+						// buf에 '\r', '\n', '\r', '\n'이 연속적으로 있는 곳을 확인.
+						Log.e("splibyte_true_check",""+splitbyte); // 클릭전 435 , 클릭후 551
 						sbfound = true;
-						break;
+						break; //while문 빠져나온다.중요!!
 					}
 					splitbyte++;
 				}
+				Log.e("before_splitbyte","before_splitbyte="+splitbyte); // 435, 클릭후 551
 				splitbyte++;
+				
+				Log.e("after_splitbyte","after_splitbyte="+splitbyte); // 436, 클릭후 552 
 
 				// Write the part of body already read to ByteArrayOutputStream f
 				ByteArrayOutputStream f = new ByteArrayOutputStream();
-				if (splitbyte < rlen) f.write(buf, splitbyte, rlen-splitbyte);
+				
+				if (splitbyte < rlen) {
+					
+					Log.e("splitbyte < rlen",""+true);
+					f.write(buf, splitbyte, rlen-splitbyte);
+				}
 
 				// While Firefox sends on the first read all the data fitting
 				// our buffer, Chrome and Opera sends only the headers even if
@@ -360,39 +487,79 @@ class NanoHTTPD
 				// expect the first byte of the body at the next read.
 				if (splitbyte < rlen)
 					size -= rlen - splitbyte +1;
-				else if (!sbfound || size == 0x7FFFFFFFFFFFFFFFl)
+				else if (!sbfound || size == 0x7FFFFFFFFFFFFFFFl){ //클릭후 sbfoud= true, size는 8  조건을 만족하지 않는다. 
+					Log.e("!sbfound || size == 0x7FFFFFFFFFFFFFFFl",""+true); // true 출력
 					size = 0;
+				}
+				
+				Log.e("check_size",""+ size); // 0 출력, 클릭 후 8 출력
+				
+				Log.e("olde_rlen",""+rlen); // 436 , 클릭 후 552
 
 				// Now read all the body and write it to f
 				buf = new byte[512];
-				while ( rlen >= 0 && size > 0 )
+				Log.e("bufsize=512",""+buf);
+				while ( rlen >= 0 && size > 0 ) // size가 0 이어서 while에 못들어감. , 클릭후 size가 8  조건을 만족함!
 				{
 					rlen = is.read(buf, 0, 512);
+					// This method read bytes from a stream and stores them into a caller supplied buffer. 
+					// It starts storing the data at index off into the buffer and attempts to read len bytes. 
+					// 512 byte로 읽은것과 8192byte로 읽는것이 나르게 나왔다.
+					Log.e("changed_rlen","changed_rlen="+rlen+" changed_size= "+size);
+					char[] change_check_buf = new char[rlen+1];
+					for(int i=0; i<=rlen; i++)
+						change_check_buf[i]=(char)buf[i];
+					String change_buf_check = new String(change_check_buf);
+					Log.e("change_bytecounte_512",""+change_buf_check); //screen=1�� 출력
 					size -= rlen;
+					Log.e("size -= rlen",""+size);
 					if (rlen > 0)
 						f.write(buf, 0, rlen);
+					//This method writes len bytes from the passed in array buf starting at index offset into the internal buffer. 
 				}
 
 				// Get the raw body as a byte []
-				byte [] fbuf = f.toByteArray();
+				byte [] fbuf = f.toByteArray(); 
+				//This method creates a newly allocated Byte array. 
+				//Its size would be the current size of the output stream and the contents of the buffer will be copied into it. 
+				//Returns the current contents of the output stream as a byte array.
+				Log.e("fbuf",""+f.toByteArray()); //[B@4174ce80
+				Log.e("fbuf",""+fbuf); // [B@417895f0
+				//두개의 주소가 다르다.
+				
+				Log.e("f_size",""+f.size()); 
+				// 0이 출력되었다. buf에 write 한것이 없으므로 count가 증가하지 않아 0을 리턴.
+				// 8이 출력 되었다.
 
 				// Create a BufferedReader for easily reading it as string.
+				
+				Log.e("fbuf_length",""+fbuf.length); // 클릭 후 8 출력
 				ByteArrayInputStream bin = new ByteArrayInputStream(fbuf);
+				//The ByteArrayInputStream class allows a buffer in the memory to be used as an InputStream. 
+				//The input source is a byte array.
 				BufferedReader in = new BufferedReader( new InputStreamReader(bin));
+				//The Java.io.BufferedReader class reads text from a character-input stream, 
+				//buffering characters so as to provide for the efficient reading of characters, arrays, and lines.
 
+				
 				// If the method is POST, there may be parameters
 				// in data section, too, read it:
-				if ( method.equalsIgnoreCase( "POST" ))
+				if ( method.equalsIgnoreCase( "POST" )) //click하기전 method에 POST key 가 없다! 클릭후 POST가 있다.
 				{
+					Log.e("POST","IN_POT");
 					String contentType = "";
 					String contentTypeHeader = header.getProperty("content-type");
+					Log.e("contentTypeHeader",""+contentTypeHeader);
 					StringTokenizer st = new StringTokenizer( contentTypeHeader , "; " );
 					if ( st.hasMoreTokens()) {
+						Log.e(";_true",""+true);
 						contentType = st.nextToken();
+						Log.e(";_true",""+contentType);
 					}
 
 					if (contentType.equalsIgnoreCase("multipart/form-data"))
 					{
+						Log.e("true_contentType.equalsIgnoreCase(multipart/form-data)",""+true);
 						// Handle multipart/form-data
 						if ( !st.hasMoreTokens())
 							sendError( HTTP_BADREQUEST, "BAD REQUEST: Content type is multipart/form-data but boundary missing. Usage: GET /example/file.html" );
@@ -411,19 +578,30 @@ class NanoHTTPD
 						String postLine = "";
 						char pbuf[] = new char[512];
 						int read = in.read(pbuf);
-						while ( read >= 0 && !postLine.endsWith("\r\n") )
+						Log.e("read",""+read); // 8 출력.
+						while ( read >= 0 && !postLine.endsWith("\r\n") )  
 						{
+							// .endsWith This method tests if this string ends with the specified suffix.
 							postLine += String.valueOf(pbuf, 0, read);
+							Log.e("postLine",""+postLine); // screen=1 출력
 							read = in.read(pbuf);
+							Log.e("while_read",""+read); // -1 출력
 						}
 						postLine = postLine.trim();
+						Log.e("after_postLine",""+postLine);
 						decodeParms( postLine, parms );
 					}
 				}
-
-				if ( method.equalsIgnoreCase( "PUT" ))
+				//click하기전 method에 PUT 없음.!
+				if ( method.equalsIgnoreCase( "PUT" )){
+					Log.e("PUT","IN_PUT");
 					files.put("content", saveTmpFile( fbuf, 0, f.size()));
-
+				}
+				
+				Log.e("Before_serve","uri = "+uri+", method="+method);
+				Log.e("Before_serve","parms = "+parms+", files="+files);
+				Log.e("Before_serve","header = "+header);
+				
 				// Ok, now do the serve()
 				Response r = serve( uri, method, header, parms, files );
 				if ( r == null )
@@ -458,27 +636,44 @@ class NanoHTTPD
 			try {
 				// Read the request line
 				String inLine = in.readLine();
+				Log.e("decodeHeader_inLine",""+inLine);
+				// GET / HTTP/1.1 BufferedReader in(HTTPSession의 hin)의 버퍼에서 한줄 읽어 들인다.
+				//  screeon on 클릭후 >> POST / HTTP/1.1 
 				if (inLine == null) return;
 				StringTokenizer st = new StringTokenizer( inLine );
-				if ( !st.hasMoreTokens())
+				//String inLine에서 공백을 이용 token으로 끊어준다. GET, / , HTTP/1.1
+				//   POST, / , HTTP/1.1 
+				if ( !st.hasMoreTokens()) //리턴할 다음 토큰이 있으면 true를 다음 토큰이 없으면 false를 리턴한다.
 					sendError( HTTP_BADREQUEST, "BAD REQUEST: Syntax error. Usage: GET /example/file.html" );
 
-				String method = st.nextToken();
-				pre.put("method", method);
+				String method = st.nextToken(); // 다음 토큰을 리턴한다. 이전 토큰은 제거한다.
+				Log.e("method",""+method); // GET 출력 , 클릭 후 POST 출력
+				pre.put("method", method); 
+				// Associate the specified value with the specified key in this Hashtable.
+				//preoperties extends hashtable 을 해서 properties에서 hashtable 메소드를 사용할 수 있다.
+				Log.e("pre", ""+pre); // {method=GET} 출력 , 클릭 후 {method=POST} 
 
 				if ( !st.hasMoreTokens())
 					sendError( HTTP_BADREQUEST, "BAD REQUEST: Missing URI. Usage: GET /example/file.html" );
-
+				
 				String uri = st.nextToken();
+				Log.e("decodeHeader_uri",""+uri); // / 출력
 
 				// Decode parameters from the URI
 				int qmi = uri.indexOf( '?' );
+				//uri 문자열에서 특정문자의 위치를 구 할 수 있다. 문자가 없으면 -1 반환
+				Log.e("qmi",""+qmi); // -1 출력
 				if ( qmi >= 0 )
 				{
+					Log.e("qmi>=0","true");
 					decodeParms( uri.substring( qmi+1 ), parms );
 					uri = decodePercent( uri.substring( 0, qmi ));
 				}
 				else uri = decodePercent(uri);
+				//uri에 + 나 %로 인코등 된것을 디코딩 하기 위해서 decodePerect를 호출. 디코딩 한 것을 string으로 반환.!
+				
+				Log.e("decodeHeader_uri", ""+uri);// / 출력.!( +나 %가 없었다.)
+				
 
 				// If there's another token, it's protocol version,
 				// followed by HTTP headers. Ignore version but parse headers.
@@ -487,16 +682,63 @@ class NanoHTTPD
 				if ( st.hasMoreTokens())
 				{
 					String line = in.readLine();
-					while ( line != null && line.trim().length() > 0 )
+					Log.e("HTTP headers",""+line); // Host: localhost:8090 출력
+					Log.e("line.trim()",""+line.trim()); 
+					// line.trim() line의 처음과 끝의 공백을 제거한다. Host: localhost:8090 출력
+					while ( line != null && line.trim().length() > 0 ) //line이 null이고 line에 연속되는 문자가 없으면 while문 중단.
 					{
-						int p = line.indexOf( ':' );
-						if ( p >= 0 )
+						int p = line.indexOf( ':' ); // line 안에 : 특정 문자(:)가 시작되는 인덱스를 리턴한다.!
+						Log.e("HTTP_header_line.indexof( : )",""+p);
+						Log.e("line_in_while","in_while");
+						if ( p >= 0 ){
+							//key
+							Log.e("line.substring(0,p)",line.substring(0,p));
+							//line.substring 문자열의 시작위치(0)에서 끝위치(p)까지의 문자를 뽑아내게 된다. 
+							//단 끝위치는 포함이 안된다
+							Log.e("line.substring(0,p).trim()",""+line.substring(0,p).trim());// 처음과 끝의 공백 제거
+							Log.e("line.substring(0,p).trim().toLowerCase()",
+									""+line.substring(0,p).trim().toLowerCase());//모두 소문자로 변경
+							
+							//value
+							Log.e("line.substring(p+1)",line.substring(p+1));//line 에서 p+1 부터 끝의 문자를 생성해서 반환.
+							Log.e("line.substring(p+1).trim()",line.substring(p+1).trim());//처음과 끝의 공백 제거
+							
+							//put(key,value)
 							header.put( line.substring(0,p).trim().toLowerCase(), line.substring(p+1).trim());
+							// The put(K key, V value) method is used 
+							// to map the specified key to the specified value in this hashtable.
+							//.getProperty(key) 를 하면 value 값을 return 한다.
+							Log.e("Http_header_header.put",""+header);
+						}
 						line = in.readLine();
+						Log.e("HTTP_header_next_line",""+line); 
+						//+++ LOG: entry corrupt or truncated 마지막에 이 메세지를 출력하고 while문 종료!
 					}
 				}
-
+				
+				Log.e("finish_put_header",""+header);
+				//{cache-control=no-cache, connection=keep-alive, accept-language=en-US, 
+				// host=localhost:8090, accept=text/html,application/xhtml+xml,
+				// application/xml;q=0.9,*/*;q=0.8, user-agent=Mozilla/5.0 
+				// (Linux; U; Android 4.0.2; en-us; sdk Build/ICS_MR0) AppleWebKit/534.30 (KHTML, like Gecko) 
+				// Version/4.0 Mobile Safari/534.30, accept-encoding=gzip,deflate, 
+				// accept-charset=utf-8, iso-8859-1, utf-16, *;q=0.7, pragma=no-cache}
+				// hashtable은 랜덤으로 저장된다!
+				
+				// ----------screen on click 후 내용
+				// {content-type=application/x-www-form-urlencoded, cache-control=max-age=0,
+				//  connection=keep-alive, accept-language=en-US, host=localhost:8090,
+				//  accept=text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8,
+				//  content-length=8, origin=http://localhost:8090, 
+				//  user-agent=Mozilla/5.0 (Linux; U; Android 4.0.2; en-us; sdk Build/ICS_MR0) 
+				//  AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30,
+				//  accept-encoding=gzip,deflate, referer=http://localhost:8090/, 
+				//  accept-charset=utf-8, iso-8859-1, utf-16, *;q=0.7}  
+				
+				Log.e("before_pre.put(uri, uri)",""+pre);	// {method=GET} , 클릭 후 {method=POST}
 				pre.put("uri", uri);
+				Log.e("after_pre.put(uri, uri)",""+pre); // {uri=/, method=GET}, 클릭 후 {uri=/, method=POST}
+				//HTTPSession으로 돌아간다!
 			}
 			catch ( IOException ioe )
 			{
@@ -674,10 +916,23 @@ class NanoHTTPD
 		{
 			try
 			{
+				Log.e("decodePercent_str->uri",""+str); 
+				// / 출력
+				// 클릭 후 decodeparms-> decodePercent( e.substring( 0, sep ))  screen 출력
+				// 클릭 후 decodeparms-> e.substring( sep+1 ))  1 출력
 				StringBuffer sb = new StringBuffer();
+				Log.e("decodePercent_str.length",""+str.length()); 
+				// 1 출력
+				// 클릭 후 decodePercent( e.substring( 0, sep )) , 6출력
+				// 클릭 후 decodeparms-> e.substring( sep+1 )) , 1 출력
+				for(int index=0; index<str.length(); index++)
+					Log.e("str_print",""+str.charAt(index));// / 출력
+				
+				//Log.e("str_print_null",null);
 				for( int i=0; i<str.length(); i++ )
 				{
-					char c = str.charAt( i );
+					
+					char c = str.charAt( i ); // index로 지정한 string의 특정 offset(좌표)에 문자를 반환
 					switch ( c )
 					{
 						case '+':
@@ -692,7 +947,11 @@ class NanoHTTPD
 							break;
 					}
 				}
-				return sb.toString();
+				Log.e("sb.toString",""+sb.toString());
+				// / 출력
+				// 클릭 후 decodePercent( e.substring( 0, sep )) 호출 screen 출력
+				// 클릭 후 decodeparms-> e.substring( sep+1 )) 1 출력
+				return sb.toString();// string 자료 형으로 변경.
 			}
 			catch( Exception e )
 			{
@@ -715,13 +974,20 @@ class NanoHTTPD
 				return;
 
 			StringTokenizer st = new StringTokenizer( parms, "&" );
+			Log.e("decodeParms_st",""+st);
 			while ( st.hasMoreTokens())
 			{
 				String e = st.nextToken();
 				int sep = e.indexOf( '=' );
+				Log.e("e",""+e);//screen=1
+				Log.e("sep",""+sep); //6
+				Log.e("sep_key",""+e.substring( 0, sep ));//screen
+				Log.e("sep_value",""+e.substring( sep+1 ));//1
+				
 				if ( sep >= 0 )
 					p.put( decodePercent( e.substring( 0, sep )).trim(),
 						   decodePercent( e.substring( sep+1 )));
+				Log.e("after_p",""+p);
 			}
 		}
 
@@ -837,6 +1103,7 @@ class NanoHTTPD
 	public Response serveFile( String uri, Properties header, File homeDir,
 							   boolean allowDirectoryListing )
 	{
+		Log.e("serveFile","start_serveFile");
 		Response res = null;
 
 		// Make sure we won't die of an exception later
