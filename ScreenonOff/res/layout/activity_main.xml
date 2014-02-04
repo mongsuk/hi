@@ -22,4 +22,11 @@
         android:text="@string/screen_off"
         />
     
+    <Button
+        android:id="@+id/ScreenOn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/screen_on"
+        />
+    
 </LinearLayout>

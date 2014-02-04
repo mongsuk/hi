@@ -15,7 +15,9 @@ public class MainActivity extends Activity {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);		
 		Button button = (Button)findViewById(R.id.ScreenOff);
+		Button button2 = (Button)findViewById(R.id.ScreenOn);
 		button.setOnClickListener(ScreenOff); 
+		button2.setOnClickListener(ScreenOn); 
 	}
 	
 	OnClickListener ScreenOff = new OnClickListener() {
@@ -27,6 +29,19 @@ public class MainActivity extends Activity {
 	       params.flags |= LayoutParams.FLAG_KEEP_SCREEN_ON;
 	       params.screenBrightness = 0;
 	       getWindow().setAttributes(params);			
+		}
+	};
+	
+	OnClickListener ScreenOn = new OnClickListener() {
+		
+		@Override
+		public void onClick(View arg0) {
+			// TODO Auto-generated method stub
+			WindowManager.LayoutParams params = getWindow().getAttributes();
+		   params.flags |= LayoutParams.FLAG_KEEP_SCREEN_ON;
+		   params.screenBrightness = 1;
+		   getWindow().setAttributes(params);	
+			
 		}
 	};
 }

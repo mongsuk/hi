@@ -46,8 +46,7 @@ public class MainActivity extends Activity {
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-		}
-        
+		}       
     }
 
     @Override
@@ -355,7 +354,7 @@ class NanoHTTPD
 				// Accept-Language: en-US
 				// Accept-Charset: utf-8, iso-8859-1, utf-16, *;q=0.7
 				// 
-				// ��
+				// screen=1��
 				// click 후 buf 내용 end
 				
 				
@@ -430,7 +429,7 @@ class NanoHTTPD
 					try { 
 						size = Integer.parseInt(contentLength);
 						// Converts the specified String into an int. 
-						Log.e("contentLength_size",""+size);
+						Log.e("contentLength_size",""+size);//8
 						}
 					catch (NumberFormatException ex) {}
 				}
@@ -477,6 +476,8 @@ class NanoHTTPD
 					
 					Log.e("splitbyte < rlen",""+true);
 					f.write(buf, splitbyte, rlen-splitbyte);
+					// buf splibyte부터 rlen-splitebyte만큼 내용을 f 객체의 buf에 저장!
+					// system.arraraycopy 이용
 				}
 
 				// While Firefox sends on the first read all the data fitting
@@ -485,8 +486,10 @@ class NanoHTTPD
 				// out whether we have already consumed part of body, if we
 				// have reached the end of the data to be sent or we should
 				// expect the first byte of the body at the next read.
-				if (splitbyte < rlen)
-					size -= rlen - splitbyte +1;
+				if (splitbyte < rlen){
+					size -= rlen - splitbyte +1; // //size = size - rlen+splitbyte-1;
+					Log.e("size -= rlen - splitbyte +1",""+size);
+				}
 				else if (!sbfound || size == 0x7FFFFFFFFFFFFFFFl){ //클릭후 sbfoud= true, size는 8  조건을 만족하지 않는다. 
 					Log.e("!sbfound || size == 0x7FFFFFFFFFFFFFFFl",""+true); // true 출력
 					size = 0;
@@ -670,7 +673,7 @@ class NanoHTTPD
 					uri = decodePercent( uri.substring( 0, qmi ));
 				}
 				else uri = decodePercent(uri);
-				//uri에 + 나 %로 인코등 된것을 디코딩 하기 위해서 decodePerect를 호출. 디코딩 한 것을 string으로 반환.!
+				//uri에 + 나 %로 인코딩된것을 디코딩 하기 위해서 decodePerect를 호출. 디코딩 한 것을 string으로 반환.!
 				
 				Log.e("decodeHeader_uri", ""+uri);// / 출력.!( +나 %가 없었다.)
 				
